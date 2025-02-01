@@ -39,21 +39,8 @@ const externalCache = {
   /**
    * Place a value into the internal cache.
    *
-   * Use the `maxAgeMs` option to evict values from the cache after a certain
-   * amount of time. Overwriting a cached value will also reset its old
-   * `maxAgeMs` with the newly provided `maxAgeMs` if it has not yet been
-   * evicted. If the overwrite is performed but no `maxAgeMs` is provided, then
-   * the value will no longer expire (and vice-versa). Note that providing a
-   * `maxAgeMs <= 0` is the same as not providing `maxAgeMs`.
-   *
-   * Use the `wasPromised: true` option to return a resolved promise when `get`
-   * is called with a matching cache scope and id. It is unnecessary to set this
-   * option if the caller is already an asynchronous function, since anything it
-   * returns will already be wrapped in a promise. This is useful for
-   * synchronous functions that might return a promise or might not depending on
-   * their input, such as {@link memoize}.
-   *
-   * Attempting to "set" `undefined` as a value is a no-op.
+   * Attempting to "set" `undefined` as a value is a no-op (i.e. the same as
+   * having never called this function at all).
    */
   set: setInCache,
   /**
@@ -216,7 +203,35 @@ function setInCache<
         SecondaryKeysToOmit
       >
     | undefined,
-  { maxAgeMs, wasPromised = false }: { maxAgeMs?: number; wasPromised?: boolean } = {}
+  {
+    maxAgeMs,
+    wasPromised = false
+  }: {
+    /**
+     * Use `maxAgeMs` to evict values from the cache after a certain amount of
+     * time.
+     *
+     * Overwriting a cached value will also reset its old `maxAgeMs` with the
+     * newly provided `maxAgeMs` if it has not yet been evicted. If the
+     * overwrite is performed but no `maxAgeMs` is provided, then the value will
+     * no longer expire (and vice-versa).
+     *
+     * Note that providing a `maxAgeMs <= 0` is the same as not providing
+     * `maxAgeMs`.
+     */
+    maxAgeMs?: number;
+
+    /**
+     * Use `wasPromised: true` to return a resolved promise when `get` is called
+     * with a matching cache scope and id.
+     *
+     * It is unnecessary to set this option if the caller is already an
+     * asynchronous function, since anything it returns will already be wrapped
+     * in a promise. This is useful for synchronous functions that might return
+     * a promise or might not depending on their input, such as {@link memoize}.
+     */
+    wasPromised?: boolean;
+  } = {}
 ): void {
   if (value === undefined) {
     cacheDebug.warn(
@@ -313,8 +328,6 @@ function clearCacheByScope(scopesToClear: CacheScope[]) {
   for (const scope of scopesToClear) {
     const internalScopedCacheEntry = internalCache.get(scope);
 
-    clearInternalScopedCacheEntry(internalScopedCacheEntry);
-
     if (internalScopedCacheEntry?.size) {
       cacheDebug(
         'internal %O cache cleared (%O entries deleted)',
@@ -327,6 +340,8 @@ function clearCacheByScope(scopesToClear: CacheScope[]) {
         scope.name
       );
     }
+
+    clearInternalScopedCacheEntry(internalScopedCacheEntry);
   }
 }
 
