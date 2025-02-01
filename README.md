@@ -31,8 +31,13 @@ An extensible memoization cache and global singleton used to speed up expensive 
 
 <!-- symbiote-template-region-end -->
 
-An extensible memoization cache and global singleton used to speed up expensive
-function calls.
+An extremely flexible memoization cache and global singleton used to speed up
+expensive function calls.
+
+Provides a simple but powerful API. Supports any number of parameters and/or a
+final "options" object parameter, asynchronous and synchronous functions, and
+per-function "scoped" caching. Provides nuanced usage statistics and
+super-powered TypeScript types for smooth DX.
 
 <!-- symbiote-template-region-start 3 -->
 
@@ -45,6 +50,9 @@ function calls.
 
 - [Install](#install)
 - [Usage](#usage)
+  - [`memoize`](#memoize)
+  - [`memoizer`](#memoizer)
+  - [Other Considerations](#other-considerations)
 - [Appendix](#appendix)
   - [Published Package Details](#published-package-details)
   - [License](#license)
@@ -69,9 +77,516 @@ npm install @-xun/memoize
 
 ## Usage
 
-<!-- TODO -->
+> Full API documentation is available [here][x-repo-docs].
 
-TODO
+<br />
+
+Original function without memoization:
+
+```typescript
+function doExpensiveAnalysisOfFile(
+  filePath: string,
+  options: { activateFunctionality?: boolean } = {}
+) {
+  const { activateFunctionality } = options;
+  const complexResult = expensiveAnalysis(filePath, activateFunctionality);
+
+  return complexResult;
+}
+
+doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  activateFunctionality: true
+});
+```
+
+<br />
+
+### [`memoize`][2]
+
+Simple memoization:
+
+```typescript
+import { memoize } from '@-xun/memoize';
+
+const memoizedDoExpensiveAnalysisOfFile = memoize(doExpensiveAnalysisOfFile);
+
+memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
+```
+
+<br />
+
+Expiring memoization, where cache entries are evicted after a certain amount of
+time:
+
+```typescript
+import { memoize } from '@-xun/memoize';
+
+const memoizedDoExpensiveAnalysisOfFile = memoize(doExpensiveAnalysisOfFile, {
+  maxAgeMs: 10_000
+});
+
+memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
+```
+
+<br />
+
+Optional memoization of an async function, allowing the caller to explicitly
+recompute the cached value when desired:
+
+```typescript
+import { memoize } from '@-xun/memoize';
+
+const memoizedDoExpensiveAnalysisOfFile = memoize(
+  asyncDoExpensiveAnalysisOfFile,
+  { addUseCachedOption: true }
+);
+
+await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  // Will look in the cache for a result first (wrt the given filePath).
+  useCached: true
+});
+
+await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  // Will bypass the cache and force recomputation, then cache the result.
+  useCached: false
+});
+```
+
+<br />
+
+### [`memoizer`][3]
+
+Basic memoization:
+
+```typescript
+import { memoizer } from '@-xun/memoize';
+
+function doExpensiveAnalysisOfFile(
+  filePath: string,
+  options: { activateFunctionality: boolean }
+) {
+  const { activateFunctionality } = options;
+  let complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
+    filePath,
+    options
+  ]);
+
+  if (!complexResult) {
+    complexResult = expensiveAnalysis(filePath, activateFunctionality);
+    memoizer.set(doExpensiveAnalysisOfFile, [filePath, options], complexResult);
+  }
+
+  return complexResult;
+}
+
+doExpensiveAnalysisOfFile('/repos/project/some-file.js');
+```
+
+<br />
+
+Optional memoization, allowing the caller to explicitly recompute the cached
+value when desired:
+
+```typescript
+import { memoizer } from '@-xun/memoize';
+
+// It is usually ideal to force the caller to acknowledge that they're dealing
+// with a memoized function, which can prevent bad surprises. Still, we could
+// have made useCached optional if we wanted to.
+
+function doExpensiveAnalysisOfFile(
+  filePath: string,
+  {
+    useCached,
+    ...cacheIdComponents
+  }: { activateFunctionality?: boolean; useCached: boolean }
+) {
+  const { activateFunctionality } = cacheIdComponents;
+  let complexResult;
+
+  if (options.useCached) {
+    complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
+      filePath,
+      cacheIdComponents
+    ]);
+  }
+
+  if (!complexResult) {
+    complexResult = expensiveAnalysis(filePath, activateFunctionality);
+
+    memoizer.set(
+      doExpensiveAnalysisOfFile,
+      [filePath, cacheIdComponents],
+      complexResult
+    );
+  }
+
+  return complexResult;
+}
+
+doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  // Will look in the cache for a result first (wrt the given filePath).
+  useCached: true
+});
+
+doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  // Will bypass the cache and force recomputation, then cache the result.
+  useCached: false
+});
+```
+
+<br />
+
+More complex memoization, where we accept an array of paths with all, some, or
+none have been cached already. Our goal here is to do as little work as
+possible:
+
+```typescript
+import { memoizer } from '@-xun/memoize';
+
+function doExpensiveAnalysisOfFiles(
+  filePaths: string[],
+  {
+    useCached = true,
+    ...cacheIdComponents
+  }: { activateFunctionality?: boolean; useCached?: boolean } = {}
+) {
+  const { activateFunctionality } = cacheIdComponents;
+  const complexResults = [];
+
+  for (const filePath of filePaths) {
+    let complexResult;
+
+    if (options.useCached) {
+      // Both the `filePaths` parameter and the return type of
+      // doExpensiveAnalysisOfFiles are "unwrapped" (T[] => T) automatically.
+      // This can be disabled (see next example).
+      complexResult = memoizer.get(doExpensiveAnalysisOfFiles, [
+        filePath,
+        cacheIdComponents
+      ]);
+    }
+
+    if (!complexResult) {
+      complexResult = expensiveAnalysis(filePath, activateFunctionality);
+
+      memoizer.set(
+        doExpensiveAnalysisOfFiles,
+        [filePath, cacheIdComponents],
+        complexResult
+      );
+    }
+
+    complexResults.push(complexResult);
+  }
+
+  return complexResults;
+}
+
+doExpensiveAnalysisOfFiles([
+  '/repos/project/some-file-1.js',
+  '/repos/project/some-file-2.js',
+  '/repos/project/some-file-3.js'
+]);
+
+// Even though the parameters are different, we can still take advantage of the
+// memoized result of the previous invocation! No extra work is done by the
+// following:
+doExpensiveAnalysisOfFiles(['/repos/project/some-file-2.js']);
+```
+
+<br />
+
+More complex memoization, where we accept and memoize an array of paths in one
+shot:
+
+```typescript
+import { memoizer } from '@-xun/memoize';
+
+function doExpensiveAnalysisOfFiles(
+  filePaths: string[],
+  {
+    useCached = true,
+    ...cacheIdComponents
+  }: { activateFunctionality?: boolean; useCached: boolean } = {}
+) {
+  const { activateFunctionality } = cacheIdComponents;
+  let complexResults;
+
+  if (options.useCached) {
+    complexResults = memoizer.get<
+      typeof doExpensiveAnalysisOfFiles,
+      // Do not "unwrap" the `filePaths` parameter (if it is an array).
+      false,
+      // Do not "unwrap" the return value (if it is an array).
+      false
+    >(doExpensiveAnalysisOfFiles, [filePaths, cacheIdComponents]);
+  }
+
+  if (!complexResults) {
+    complexResults = expensiveAnalysis(filePaths, activateFunctionality);
+
+    memoizer.set<typeof doExpensiveAnalysisOfFiles, false, false>(
+      doExpensiveAnalysisOfFiles,
+      [filePaths, cacheIdComponents],
+      complexResults
+    );
+  }
+
+  return complexResults;
+}
+
+doExpensiveAnalysisOfFiles(
+  [
+    '/repos/project/some-file-1.js',
+    '/repos/project/some-file-2.js',
+    '/repos/project/some-file-3.js'
+  ],
+  {
+    activateFunctionality: true,
+    useCached: true
+  }
+);
+
+doExpensiveAnalysisOfFiles(
+  [
+    '/repos/project/some-file-1.js',
+    '/repos/project/some-file-2.js',
+    '/repos/project/some-file-3.js'
+  ],
+  {
+    // This being false means a different cache key is generated and the
+    // previous results are not reused, even though filePaths is the same!
+    activateFunctionality: false,
+    useCached: true
+  }
+);
+```
+
+<br />
+
+Memoization of an async function using object-style parameters:
+
+```typescript
+import { memoizer } from '@-xun/memoize';
+
+async function doExpensiveAnalysisOfFile({
+  useCached,
+  ...cacheIdComponents
+}: {
+  filePath: string;
+  activateFunctionality?: boolean;
+  useCached: boolean;
+}) {
+  const { filePath, activateFunctionality } = cacheIdComponents;
+  let complexResult;
+
+  if (options.useCached) {
+    // doExpensiveAnalysisOfFile's return type (not the actual value) is always
+    // Awaited<...> if it returns a promise.
+    complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
+      cacheIdComponents
+    ]);
+  }
+
+  if (!complexResult) {
+    complexResult = await expensiveAnalysis(filePath, activateFunctionality);
+    memoizer.set(doExpensiveAnalysisOfFile, [cacheIdComponents], complexResult);
+  }
+
+  return complexResult;
+}
+
+await doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true
+});
+
+await doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: false
+});
+```
+
+<br />
+
+Customizing which parameters are considered as components of the cache key when
+memoizing a function:
+
+```typescript
+import { memoizer } from '@-xun/memoize';
+
+function doExpensiveAnalysisOfFile({
+  useCached,
+  activateFunctionality = true,
+  // We only want to use a subset options when calculating the cache "id".
+  ...cacheIdComponents
+}: {
+  filePath: string;
+  activateFunctionality: boolean;
+  activateOtherFunctionality?: boolean;
+  somethingElse: number;
+  useCached: boolean;
+}) {
+  // These three properties will be used as components for our cache "id". If
+  // one of them changes, the cache will miss. The other properties are ignored.
+  const { filePath, activateOtherFunctionality, somethingElse } =
+    cacheIdComponents;
+
+  let complexResult;
+
+  if (options.useCached) {
+    complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
+      cacheIdComponents
+    ]);
+  }
+
+  if (!complexResult) {
+    complexResult = expensiveAnalysis(
+      filePath,
+      activateFunctionality,
+      activateOtherFunctionality
+    );
+
+    memoizer.set(doExpensiveAnalysisOfFile, [cacheIdComponents], complexResult);
+  }
+
+  doSomethingElse(somethingElse);
+  return complexResult;
+}
+
+doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true,
+  activateFunctionality: true,
+  somethingElse: 5
+});
+
+// Cache miss
+doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true,
+  activateFunctionality: true,
+  somethingElse: 6
+});
+
+// Cache hit
+doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true,
+  activateFunctionality: false,
+  somethingElse: 5
+});
+```
+
+<br />
+
+Expiring cache entries (in this example: 10 seconds after being set unless set
+again), clearing the cache on a per-scope basis, and accessing cache usage
+metadata:
+
+```typescript
+import { memoizer } from '@-xun/memoize';
+
+async function doExpensiveAnalysisOfFile({
+  useCached,
+  ...cacheIdComponents
+}: {
+  filePath: string;
+  activateFunctionality?: boolean;
+  useCached: boolean;
+}) {
+  const { filePath, activateFunctionality } = cacheIdComponents;
+  let complexResult;
+
+  if (options.useCached) {
+    complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
+      cacheIdComponents
+    ]);
+  }
+
+  if (!complexResult) {
+    complexResult = await expensiveAnalysis(filePath, activateFunctionality);
+    memoizer.set(
+      doExpensiveAnalysisOfFile,
+      [cacheIdComponents],
+      complexResult,
+      { maxAgeMs: 10_000 }
+    );
+  }
+
+  return complexResult;
+}
+
+await doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true
+});
+
+// Hits the cache
+await doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true
+});
+
+// Clears the cache but only for the specified function
+memoizer.clear([doExpensiveAnalysisOfFile]);
+
+// Misses the cache
+await doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true
+});
+
+console.log(memoizer);
+
+// {
+//   set: [Function: setInCache],
+//   sets: 3,
+//   setsOverwrites: 1,
+//   setsCreated: 2,
+//   get: [Function: getFromCache],
+//   gets: 3,
+//   getsHits: 1,
+//   getsMisses: 2,
+//   clear: [Function: clearCacheByScope],
+//   clearAll: [Function: clearCache],
+//   clears: 1,
+//   expirations: 0,
+//   pendingExpirations: 1,
+//   cachedScopes: 1,
+//   cachedEntries: 1,
+// }
+```
+
+### Other Considerations
+
+- The internal cache is implemented as a global singleton that will persist
+  across the entire runtime, even when imported from different packages. No need
+  to worry about any of the usual package hazards.
+
+- The `useCached` property, if used as part of an "options" object, is omitted
+  from the type of the secondary optional parameter. The name of this property
+  can be customized, and additional properties can be similarly omitted, using
+  the `SecondaryKeysToOmit` generic parameter on `memoizer.get` and
+  `memoizer.set`.
+
+- All parameters of memoized functions must be [serializable][1] via
+  `JSON.stringify` or explicitly `undefined`. If they are defined but not
+  serializable, create a wrapper function that transforms any unserializable
+  parameters into some serializable representation before passing them to the
+  memoizer functions.
+
+> [!CAUTION]
+>
+> `JSON.stringify` will not consistently throw when it encounters unserializable
+> or semi-serializable parameters!
+>
+> If used carelessly, this can lead to arbitrary cache key collisions where the
+> memoizer functions return the same result for obviously different sets of
+> parameters when it clearly shouldn't.
+>
+> To prevent this, ensure your function's memoized parameters are serializable.
 
 <!-- symbiote-template-region-start 5 -->
 
@@ -257,3 +772,7 @@ specification. Contributions of any kind welcome!
 [x-repo-pr-compare]: https://github.com/Xunnamius/memoize/compare
 [x-repo-sponsor]: https://github.com/sponsors/Xunnamius
 [x-repo-support]: /.github/SUPPORT.md
+[1]:
+  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#description
+[2]: ./docs/src/functions/memoize.md
+[3]: ./docs/src/variables/memoizer.md
