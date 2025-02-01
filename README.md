@@ -101,7 +101,11 @@ doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
 
 <br />
 
-### [`memoize`][2]
+<!-- remark-ignore-start -->
+
+### [`memoize`](./docs/src/functions/memoize.md)
+
+<!-- remark-ignore-end -->
 
 Simple memoization:
 
@@ -154,7 +158,11 @@ await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
 
 <br />
 
-### [`memoizer`][3]
+<!-- remark-ignore-start -->
+
+### [`memoizer`](./docs/src/variables/memoizer.md)
+
+<!-- remark-ignore-end -->
 
 Basic memoization:
 
@@ -774,5 +782,3 @@ specification. Contributions of any kind welcome!
 [x-repo-support]: /.github/SUPPORT.md
 [1]:
   https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/stringify#description
-[2]: ./docs/src/functions/memoize.md
-[3]: ./docs/src/variables/memoizer.md
