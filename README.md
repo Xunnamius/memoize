@@ -134,11 +134,14 @@ memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
 
 <br />
 
-Optional memoization of an async function, allowing the caller to explicitly
+Memoization of an async function, optionally allowing the caller to explicitly
 recompute the cached value when desired:
 
 ```typescript
 import { memoize } from '@-xun/memoize';
+
+// Suppose "asyncDoExpensiveAnalysisOfFile" is defined as an async version of
+// "doExpensiveAnalysisOfFile"
 
 const memoizedDoExpensiveAnalysisOfFile = memoize(
   asyncDoExpensiveAnalysisOfFile,
