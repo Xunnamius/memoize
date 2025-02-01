@@ -8,7 +8,7 @@
 
 > `const` **memoizer**: `object`
 
-Defined in: [src/index.ts:38](https://github.com/Xunnamius/memoize/blob/b19c4e5e995baa4a6951ba0b497611a0556c589f/src/index.ts#L38)
+Defined in: [src/index.ts:38](https://github.com/Xunnamius/memoize/blob/283d7337c9ac22bf4837dd729f73aabb00c33795/src/index.ts#L38)
 
 The user-facing interface for the memoization cache and related metadata.
 
@@ -131,7 +131,11 @@ the value will no longer expire (and vice-versa). Note that providing a
 `maxAgeMs <= 0` is the same as not providing `maxAgeMs`.
 
 Use the `wasPromised: true` option to return a resolved promise when `get`
-is called with a matching cache scope and id.
+is called with a matching cache scope and id. It is unnecessary to set this
+option if the caller is already an asynchronous function, since anything it
+returns will already be wrapped in a promise. This is useful for
+synchronous functions that might return a promise or might not depending on
+their input, such as [memoize](../functions/memoize.md).
 
 Attempting to "set" `undefined` as a value is a no-op.
 

@@ -8,7 +8,7 @@
 
 > **RecursiveUnwrapArraysInArray**\<`Wrapped`, `Rest`\>: `Wrapped` *extends* \[infer T, `...(infer U)`\] ? `U` *extends* `never`[] ? [`ExcludeRestIfNever`](ExcludeRestIfNever.md)\<`Rest`, `T`\> : [`RecursiveUnwrapArraysInArray`](RecursiveUnwrapArraysInArray.md)\<`U`, [`ExcludeRestIfNever`](ExcludeRestIfNever.md)\<`Rest`, `T`\>\> : `never`
 
-Defined in: src/helpers.ts:53
+Defined in: [src/helpers.ts:53](https://github.com/Xunnamius/memoize/blob/283d7337c9ac22bf4837dd729f73aabb00c33795/src/helpers.ts#L53)
 
 Take an array of `unknown` types and, if any of those types extend `T[]`,
 replaces said types with `T`, essentially "unwrapping" them.
