@@ -64,7 +64,9 @@
     "test:packages:all": "symbiote test --env NODE_NO_WARNINGS=1 --scope unlimited --coverage"
   },
   "dependencies": {
-    "rejoinder": "^1.2.4"
+    "core-js": "^3.40.0",
+    "rejoinder": "^1.2.4",
+    "type-fest": "^4.33.0"
   },
   "devDependencies": {
     "@-xun/symbiote": "^2.18.1"
