@@ -1,6 +1,7 @@
 // * These tests ensure the exported interface under test functions as expected.
 
 import { memoize, memoizer } from 'universe';
+import { ErrorMessage } from 'universe:error.ts';
 
 beforeEach(() => {
   memoizer.clearAll();
@@ -127,6 +128,127 @@ describe('cache.get and cache.set', () => {
 
     expect(memoizer.expirations).toBe(2);
     expect(memoizer.pendingExpirations).toBe(0);
+  });
+
+  it('returns a promise when wasPromised was enabled during set', async () => {
+    expect.hasAssertions();
+
+    const fn1 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const parameters1: Parameters<typeof fn1> = [1, 'two', { d: true }];
+    const returnType1: ReturnType<typeof fn1> = [1, 'two', true];
+
+    memoizer.set(fn1, parameters1, returnType1, { wasPromised: true });
+    await expect(memoizer.get(fn1, parameters1)).resolves.toBe(returnType1);
+  });
+
+  it('resets expiration interval when overwriting a cached value with a new maxAgeMs', async () => {
+    expect.hasAssertions();
+
+    const fn1 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const fn2 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const parameters1: Parameters<typeof fn1> = [1, 'two', { d: true }];
+    const returnType1: ReturnType<typeof fn1> = [1, 'two', true];
+
+    memoizer.set(fn1, parameters1, returnType1, { maxAgeMs: 100 });
+    memoizer.set(fn2, parameters1, returnType1, { maxAgeMs: 100 });
+
+    expect(memoizer.pendingExpirations).toBe(2);
+    expect(memoizer.expirations).toBe(0);
+
+    jest.advanceTimersByTime(50);
+
+    memoizer.set(fn1, parameters1, returnType1, { maxAgeMs: 100 });
+
+    expect(memoizer.pendingExpirations).toBe(2);
+    expect(memoizer.expirations).toBe(0);
+
+    jest.advanceTimersByTime(50);
+
+    expect(memoizer.pendingExpirations).toBe(1);
+    expect(memoizer.expirations).toBe(1);
+
+    jest.advanceTimersByTime(50);
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(2);
+  });
+
+  it('unsets expiration interval when overwriting a cached value with no new maxAgeMs', async () => {
+    expect.hasAssertions();
+
+    const fn1 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const parameters1: Parameters<typeof fn1> = [1, 'two', { d: true }];
+    const returnType1: ReturnType<typeof fn1> = [1, 'two', true];
+
+    memoizer.set(fn1, parameters1, returnType1, { maxAgeMs: 100 });
+
+    expect(memoizer.pendingExpirations).toBe(1);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.set(fn1, parameters1, returnType1);
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(0);
+  });
+
+  it('ignores illegal maxAgeMs', async () => {
+    expect.hasAssertions();
+
+    const fn1 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const fn2 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const parameters1: Parameters<typeof fn1> = [1, 'two', { d: true }];
+    const returnType1: ReturnType<typeof fn1> = [1, 'two', true];
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.set(fn1, parameters1, returnType1, { maxAgeMs: 100 });
+
+    expect(memoizer.pendingExpirations).toBe(1);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.set(fn1, parameters1, returnType1, { maxAgeMs: 0 });
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.set(fn1, parameters1, returnType1, { maxAgeMs: 100 });
+
+    expect(memoizer.pendingExpirations).toBe(1);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.set(fn1, parameters1, returnType1, { maxAgeMs: -1 });
+    memoizer.set(fn2, parameters1, returnType1, { maxAgeMs: -1 });
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(0);
+  });
+
+  it('handles "undefined" id components', async () => {
+    expect.hasAssertions();
+
+    const fn1 = (a: number, b: string | undefined, c: { d: boolean }) => [a, b, c.d];
+    const parameters1: Parameters<typeof fn1> = [1, undefined, { d: true }];
+    const returnType1: ReturnType<typeof fn1> = [1, undefined, true];
+
+    memoizer.set(fn1, parameters1, returnType1);
+    expect(memoizer.get(fn1, parameters1)).toBe(returnType1);
+  });
+
+  it('throws if id component is not serializable', async () => {
+    expect.hasAssertions();
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
+    const fn1 = (a: number, b: string | Function, c: { d: bigint }) => [a, b, c.d];
+    const returnType1: ReturnType<typeof fn1> = [1, 'two', BigInt(5)];
+
+    expect(() => memoizer.set(fn1, [1, 'two', { d: BigInt(5) }], returnType1)).toThrow(
+      ErrorMessage.NotSerializable()
+    );
+
+    expect(() =>
+      memoizer.set(fn1, [1, () => undefined, { d: BigInt(5) }], returnType1)
+    ).toThrow(ErrorMessage.NotSerializable());
   });
 });
 
@@ -296,6 +418,54 @@ describe('cache stats', () => {
       cachedEntries: 0
     });
   });
+
+  it('metadata remains accurate after expiring cached values that have not yet been evicted are cleared', async () => {
+    expect.hasAssertions();
+
+    const fn1 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const fn2 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const fn3 = (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const parameters: Parameters<typeof fn1> = [1, 'two', { d: true }];
+    const returnType: ReturnType<typeof fn1> = [1, 'two', true];
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.set(fn1, parameters, returnType, { maxAgeMs: 200 });
+
+    expect(memoizer.pendingExpirations).toBe(1);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.clear([fn2]);
+
+    expect(memoizer.pendingExpirations).toBe(1);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.clear([fn1]);
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(0);
+
+    memoizer.set(fn2, parameters, returnType, { maxAgeMs: 100 });
+    memoizer.set(fn3, parameters, returnType, { maxAgeMs: 200 });
+
+    expect(memoizer.pendingExpirations).toBe(2);
+    expect(memoizer.expirations).toBe(0);
+
+    jest.advanceTimersByTime(100);
+
+    expect(memoizer.pendingExpirations).toBe(1);
+    expect(memoizer.expirations).toBe(1);
+
+    memoizer.clearAll();
+
+    expect(memoizer.pendingExpirations).toBe(0);
+    expect(memoizer.expirations).toBe(0);
+
+    expect(memoizer.get(fn1, parameters)).toBeUndefined();
+    expect(memoizer.get(fn2, parameters)).toBeUndefined();
+    expect(memoizer.get(fn3, parameters)).toBeUndefined();
+  });
 });
 
 describe('memoize', () => {
@@ -364,5 +534,27 @@ describe('memoize', () => {
     const returnValue22 = memoized(...parameters2);
     expect(returnValue22).not.toBe(returnValue2);
     expect(returnValue22).toStrictEqual(returnValue2);
+  });
+
+  it('can memoize async functions and promise-returning functions', async () => {
+    expect.hasAssertions();
+
+    const parameters: Parameters<typeof asyncFn> = [1, 'two', { d: true }];
+    const result: Awaited<ReturnType<typeof asyncFn>> = [1, 'two', true];
+
+    const asyncFn = async (a: number, b: string, c: { d: boolean }) => [a, b, c.d];
+    const promiseReturningFn = (a: number, b: string, c: { d: boolean }) =>
+      Promise.resolve([a, b, c.d]);
+
+    const memoizedAsync = memoize(asyncFn);
+    const memoizedPromise = memoize(promiseReturningFn);
+
+    await expect(memoizedAsync(...parameters)).resolves.toStrictEqual(result);
+    await expect(memoizedPromise(...parameters)).resolves.toStrictEqual(result);
+
+    // * When cache returns undefined (which is never wrapped in a promise), the
+    // * result final should still be a promise if it would have been anyway
+    await expect(memoizedAsync(2, 'four', { d: false })).resolves.toBeArray();
+    await expect(memoizedPromise(2, 'four', { d: false })).resolves.toBeArray();
   });
 });
