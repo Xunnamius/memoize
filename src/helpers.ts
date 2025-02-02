@@ -1,5 +1,3 @@
-import { LiteralUnion, Tagged } from 'type-fest';
-
 /**
  * Options object keys that are always omitted from consideration when receiving
  * the parameters of memoized functions.
