@@ -1,3 +1,5 @@
+import { LiteralUnion, Tagged } from 'type-fest';
+
 /**
  * Options object keys that are always omitted from consideration when receiving
  * the parameters of memoized functions.
@@ -38,7 +40,7 @@ export type InternalScopedCacheEntry = Map<
 
 /**
  * Take an array of `unknown` types and, if any of those types extend `T[]`,
- * replaces said types with `T`, essentially "unwrapping" them.
+ * replaces said types with `T`, essentially "unpacking" them.
  *
  * We use this because we're assuming array parameters represent things like
  * file paths, which should each be cached under different keys when passed to
@@ -48,15 +50,15 @@ export type InternalScopedCacheEntry = Map<
  * take real "required" parameters (i.e. "primary options parameters") followed
  * by a single options object (i.e. "secondary options parameter"), usually
  * containing "optional" properties, since this pattern makes using a type like
- * `RecursiveUnwrapArraysInArray` possible and results in improved DX.
+ * `RecursiveUnpackArraysInArray` possible and results in improved DX.
  */
-export type RecursiveUnwrapArraysInArray<
-  Wrapped extends unknown[],
+export type RecursiveUnpackArraysInArray<
+  MaybePackedArray extends unknown[],
   Rest extends unknown[] = never[]
-> = Wrapped extends [infer T, ...infer U]
+> = MaybePackedArray extends [infer T, ...infer U]
   ? U extends never[]
     ? ExcludeRestIfNever<Rest, T>
-    : RecursiveUnwrapArraysInArray<U, ExcludeRestIfNever<Rest, T>>
+    : RecursiveUnpackArraysInArray<U, ExcludeRestIfNever<Rest, T>>
   : never;
 
 /**
@@ -64,7 +66,7 @@ export type RecursiveUnwrapArraysInArray<
  *
  * This is referred to throughout this codebase as "unwrapping" `T`.
  */
-export type UnwrapIfArray<T> = T extends (infer U)[] ? U : T;
+export type UnpackIfArray<T> = T extends (infer U)[] ? U : T;
 
 /**
  * If `Rest`, representing one or more elements at the end of an array, is
@@ -73,8 +75,8 @@ export type UnwrapIfArray<T> = T extends (infer U)[] ? U : T;
  * to the end.
  */
 export type ExcludeRestIfNever<Rest extends unknown[], T> = Rest extends never[]
-  ? [UnwrapIfArray<T>]
-  : [...Rest, UnwrapIfArray<T>];
+  ? [UnpackIfArray<T>]
+  : [...Rest, UnpackIfArray<T>];
 
 /**
  * Return a function `T` that accepts `frameworkOptions` via an additional final
@@ -86,54 +88,67 @@ export type WithUseCachedOption<T extends CacheScope> = (
 
 /**
  * Take a function `Fn` with a compliant primary-secondary parameter signature
- * and return a 2-element tuple (depending on the value of `ReturnTarget`).
+ * and return an array of "id components". When combined with a
+ * {@link CacheScope}, these components are used to derive a unique
+ * {@link CacheKey}.
  *
- * The first "id" element, when combined with a {@link CacheScope}, represents
- * the array of function parameters used to derive a unique {@link CacheKey}.
- * The second "value" element represents the memoized (cached) value mapped to
- * the aforesaid derived {@link CacheKey}.
+ * @see {@link ScopeToCacheValue}
  */
-export type ScopeToCacheParameters<
+export type ScopeToCacheIds<
   Fn extends CacheScope,
-  ReturnTarget extends 'id' | 'value',
-  ShouldUnwrapIds extends boolean = true,
-  ShouldUnwrapValue extends boolean = false,
+  Config extends 'expect ids as-is' | 'expect unpacked ids',
   SecondaryKeysToOmit extends string = DefaultKeysToOmitFromCacheParameters
-> = Fn extends (..._args: infer OptionsParameters) => infer Value
+> = Fn extends (...args: infer OptionsParameters) => unknown
   ? OptionsParameters extends { length: 0 }
-    ? ReturnTarget extends 'id'
-      ? never[]
-      : ShouldUnwrapValue extends true
-        ? UnwrapIfArray<Awaited<Value>>
-        : Awaited<Value>
-    : OptionsParameters extends [
-          ...infer PrimaryOptionsParameters,
+    ? never[]
+    : ExtractPrimaryAndSecondaryOptions<OptionsParameters> extends [
+          infer PrimaryOptionsParameters extends unknown[],
           infer SecondaryOptionsParameter
         ]
-      ? ReturnTarget extends 'id'
-        ? PrimaryOptionsParameters extends never[]
+      ? PrimaryOptionsParameters extends never[]
+        ? [
+            SecondaryOptionsParameter extends Record<string, unknown>
+              ? Omit<SecondaryOptionsParameter, SecondaryKeysToOmit>
+              : Config extends 'expect unpacked ids'
+                ? UnpackIfArray<SecondaryOptionsParameter>
+                : SecondaryOptionsParameter
+          ]
+        : Config extends 'expect unpacked ids'
           ? [
+              ...RecursiveUnpackArraysInArray<PrimaryOptionsParameters>,
               SecondaryOptionsParameter extends Record<string, unknown>
                 ? Omit<SecondaryOptionsParameter, SecondaryKeysToOmit>
-                : ShouldUnwrapIds extends true
-                  ? UnwrapIfArray<SecondaryOptionsParameter>
-                  : SecondaryOptionsParameter
+                : UnpackIfArray<SecondaryOptionsParameter>
             ]
-          : ShouldUnwrapIds extends true
-            ? [
-                ...RecursiveUnwrapArraysInArray<PrimaryOptionsParameters>,
-                SecondaryOptionsParameter extends Record<string, unknown>
-                  ? Omit<SecondaryOptionsParameter, SecondaryKeysToOmit>
-                  : UnwrapIfArray<SecondaryOptionsParameter>
-              ]
-            : [
-                ...PrimaryOptionsParameters,
-                SecondaryOptionsParameter extends Record<string, unknown>
-                  ? Omit<SecondaryOptionsParameter, SecondaryKeysToOmit>
-                  : SecondaryOptionsParameter
-              ]
-        : ShouldUnwrapValue extends true
-          ? UnwrapIfArray<Awaited<Value>>
-          : Awaited<Value>
+          : [
+              ...PrimaryOptionsParameters,
+              SecondaryOptionsParameter extends Record<string, unknown>
+                ? Omit<SecondaryOptionsParameter, SecondaryKeysToOmit>
+                : SecondaryOptionsParameter
+            ]
       : never
+  : never;
+
+/**
+ * Take a function `Fn` and return the "value" type representing the memoized
+ * value mapped to a {@link CacheKey}. This is the "cached" value returned by a
+ * memoized function with matching inputs (i.e. "id components").
+ *
+ * @see {@link ScopeToCacheIds}
+ */
+export type ScopeToCacheValue<
+  Fn extends CacheScope,
+  Config extends 'expect value as-is' | 'expect unpacked value'
+> = Fn extends (...args: never[]) => infer Value
+  ? Config extends 'expect unpacked value'
+    ? UnpackIfArray<Awaited<Value>>
+    : Awaited<Value>
+  : never;
+
+// * Thank you to the clever engineer @ https://stackoverflow.com/a/79406351/1367414
+export type ExtractPrimaryAndSecondaryOptions<T extends unknown[]> = [
+  ...T,
+  unknown
+] extends [...infer A, infer B, unknown]
+  ? [A, B]
   : never;

@@ -16,7 +16,8 @@ import type {
   DefaultKeysToOmitFromCacheParameters,
   InternalScopedCache,
   InternalScopedCacheEntry,
-  ScopeToCacheParameters,
+  ScopeToCacheIds,
+  ScopeToCacheValue,
   WithUseCachedOption
 } from 'universe:helpers.ts';
 
@@ -128,38 +129,17 @@ const externalCache = {
 
 function getFromCache<
   MemoizationTarget extends CacheScope,
-  ShouldUnwrapIds extends boolean = true,
-  ShouldUnwrapValue extends boolean = false,
+  IdConfig extends 'expect ids as-is' | 'expect unpacked ids' = 'expect unpacked ids',
+  ValueConfig extends
+    | 'expect value as-is'
+    | 'expect unpacked value' = 'expect value as-is',
   SecondaryKeysToOmit extends string = DefaultKeysToOmitFromCacheParameters
 >(
   scope: MemoizationTarget,
-  id: ScopeToCacheParameters<
-    MemoizationTarget,
-    'id',
-    ShouldUnwrapIds,
-    ShouldUnwrapValue,
-    SecondaryKeysToOmit
-  >
+  id: ScopeToCacheIds<MemoizationTarget, IdConfig, SecondaryKeysToOmit>
 ): ReturnType<MemoizationTarget> extends Promise<any>
-  ? Promise<
-      | ScopeToCacheParameters<
-          MemoizationTarget,
-          'value',
-          ShouldUnwrapIds,
-          ShouldUnwrapValue,
-          SecondaryKeysToOmit
-        >
-      | undefined
-    >
-  :
-      | ScopeToCacheParameters<
-          MemoizationTarget,
-          'value',
-          ShouldUnwrapIds,
-          ShouldUnwrapValue,
-          SecondaryKeysToOmit
-        >
-      | undefined {
+  ? Promise<ScopeToCacheValue<MemoizationTarget, ValueConfig> | undefined>
+  : ScopeToCacheValue<MemoizationTarget, ValueConfig> | undefined {
   const [cache, cacheKey] = deriveCacheKeyFromIdentifiers(scope, id);
 
   if (cache.has(cacheKey)) {
@@ -173,15 +153,7 @@ function getFromCache<
   externalCache.gets += 1;
 
   const { value: value_, wasPromised } = cache.get(cacheKey) || {};
-  const value = value_ as
-    | ScopeToCacheParameters<
-        MemoizationTarget,
-        'value',
-        ShouldUnwrapIds,
-        ShouldUnwrapValue,
-        SecondaryKeysToOmit
-      >
-    | undefined;
+  const value = value_ as ScopeToCacheValue<MemoizationTarget, ValueConfig> | undefined;
 
   if (wasPromised) {
     cacheDebug('key %O:%O was promised', scope.name, cacheKey);
@@ -193,27 +165,15 @@ function getFromCache<
 
 function setInCache<
   MemoizationTarget extends CacheScope,
-  ShouldUnwrapIds extends boolean = true,
-  ShouldUnwrapValue extends boolean = false,
+  IdConfig extends 'expect ids as-is' | 'expect unpacked ids' = 'expect unpacked ids',
+  ValueConfig extends
+    | 'expect value as-is'
+    | 'expect unpacked value' = 'expect value as-is',
   SecondaryKeysToOmit extends string = DefaultKeysToOmitFromCacheParameters
 >(
   scope: MemoizationTarget,
-  id: ScopeToCacheParameters<
-    MemoizationTarget,
-    'id',
-    ShouldUnwrapIds,
-    ShouldUnwrapValue,
-    SecondaryKeysToOmit
-  >,
-  value:
-    | ScopeToCacheParameters<
-        MemoizationTarget,
-        'value',
-        ShouldUnwrapIds,
-        ShouldUnwrapValue,
-        SecondaryKeysToOmit
-      >
-    | undefined,
+  id: ScopeToCacheIds<MemoizationTarget, IdConfig, SecondaryKeysToOmit>,
+  value: ScopeToCacheValue<MemoizationTarget, ValueConfig> | undefined,
   {
     maxAgeMs,
     wasPromised = false
@@ -500,9 +460,14 @@ function memoize<T extends CacheScope>(
   }
 
   function memoizeActual(incomingArgs: Parameters<T>, useCached: boolean) {
-    const cacheParameters = incomingArgs as ScopeToCacheParameters<T, 'id'>;
-    let initialResult: Promisable<ScopeToCacheParameters<T, 'value'> | undefined> =
-      undefined;
+    const cacheParameters = incomingArgs as unknown as ScopeToCacheIds<
+      T,
+      'expect ids as-is'
+    >;
+
+    let initialResult: Promisable<
+      ScopeToCacheValue<T, 'expect value as-is'> | undefined
+    > = undefined;
 
     if (useCached) {
       initialResult = getFromCache(memoizationTarget, cacheParameters);
@@ -521,10 +486,7 @@ function memoize<T extends CacheScope>(
 
     function makeResult(result: Awaited<typeof initialResult>) {
       if (result === undefined) {
-        result = memoizationTarget(...incomingArgs) as ScopeToCacheParameters<
-          T,
-          'value'
-        >;
+        result = memoizationTarget(...incomingArgs) as Awaited<typeof initialResult>;
 
         if (isPromise(result)) {
           return (result as Promise<typeof result>).then((resultActual) => {
@@ -551,5 +513,6 @@ export {
   externalCache as memoizer,
   memoize,
   type DefaultKeysToOmitFromCacheParameters,
-  type ScopeToCacheParameters
+  type ScopeToCacheIds,
+  type ScopeToCacheValue
 };
