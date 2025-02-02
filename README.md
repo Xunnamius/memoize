@@ -113,8 +113,10 @@ Simple memoization:
 ```typescript
 import { memoize } from '@-xun/memoize';
 
+//                                                vv memoized function
 const memoizedDoExpensiveAnalysisOfFile = memoize(doExpensiveAnalysisOfFile);
 
+//                                               vv cache id component(s)
 const result = memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
 memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js') === result; // true
 ```
@@ -160,9 +162,14 @@ const result = await memoizedDoExpensiveAnalysisOfFile(
 );
 
 (await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  // Will look in the cache for a result first (wrt the given filePath).
+  useCached: true
+})) === result; // true
+
+(await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
   // Will bypass the cache and force recomputation, then cache the result.
   useCached: false
-})) === result; // true
+})) !== result; // true
 ```
 
 <br />
@@ -186,14 +193,16 @@ import { memoizer } from '@-xun/memoize';
 function doExpensiveAnalysisOfFile(
   filePath: string,
   options: { activateFunctionality: boolean }
-) {
+): AnalysisResult {
   const { activateFunctionality } = options;
+
+  //                               vv memoized function
   let complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
-    filePath,
-    options
+    filePath, // <-- first cache id component
+    options //   <-- second cache id component
   ]);
 
-  if (!complexResult) {
+  if (complexResult === undefined) {
     complexResult = expensiveAnalysis(filePath, activateFunctionality);
     memoizer.set(doExpensiveAnalysisOfFile, [filePath, options], complexResult);
   }
@@ -201,7 +210,17 @@ function doExpensiveAnalysisOfFile(
   return complexResult;
 }
 
-doExpensiveAnalysisOfFile('/repos/project/some-file.js');
+const result = doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  activateFunctionality: true
+});
+
+doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  activateFunctionality: true
+}) === result; // true
+
+doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  activateFunctionality: false
+}) !== result; // true
 ```
 
 <br />
@@ -222,18 +241,18 @@ function doExpensiveAnalysisOfFile(
     useCached,
     ...cacheIdComponents
   }: { activateFunctionality?: boolean; useCached: boolean }
-) {
+): AnalysisResult {
   const { activateFunctionality } = cacheIdComponents;
   let complexResult;
 
-  if (options.useCached) {
+  if (useCached) {
     complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
       filePath,
       cacheIdComponents
     ]);
   }
 
-  if (!complexResult) {
+  if (complexResult === undefined) {
     complexResult = expensiveAnalysis(filePath, activateFunctionality);
 
     memoizer.set(
@@ -246,20 +265,25 @@ function doExpensiveAnalysisOfFile(
   return complexResult;
 }
 
-doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+const result = doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
   // Will look in the cache for a result first (wrt the given filePath).
   useCached: true
 });
 
 doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+  // Will look in the cache for a result first (wrt the given filePath).
+  useCached: true
+}) === result; // true
+
+doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
   // Will bypass the cache and force recomputation, then cache the result.
   useCached: false
-});
+}) !== result; // true
 ```
 
 <br />
 
-More complex memoization, where we accept an array of paths with all, some, or
+More complex memoization, where we accept an array of things with all, some, or
 none have been cached already. Our goal here is to do as little work as
 possible:
 
@@ -272,27 +296,33 @@ function doExpensiveAnalysisOfFiles(
     useCached = true,
     ...cacheIdComponents
   }: { activateFunctionality?: boolean; useCached?: boolean } = {}
-) {
+): AnalysisResult[] {
   const { activateFunctionality } = cacheIdComponents;
   const complexResults = [];
 
   for (const filePath of filePaths) {
     let complexResult;
 
-    if (options.useCached) {
-      // Both the `filePaths` parameter and the return type of
-      // doExpensiveAnalysisOfFiles are "unwrapped" (T[] => T) automatically.
-      // This can be disabled (see next example).
-      complexResult = memoizer.get(doExpensiveAnalysisOfFiles, [
-        filePath,
-        cacheIdComponents
-      ]);
+    if (useCached) {
+      complexResult = memoizer.get<
+        typeof doExpensiveAnalysisOfFiles,
+        // DO "unpack" id components; go from `T | T[]` to `T` (this is the default).
+        'expect unpacked ids',
+        // DO "unpack" the return value; go from `T | T[]` to `T`.
+        'expect unpacked value'
+      >(doExpensiveAnalysisOfFiles, [filePath, cacheIdComponents]);
     }
 
-    if (!complexResult) {
+    if (complexResult === undefined) {
       complexResult = expensiveAnalysis(filePath, activateFunctionality);
 
-      memoizer.set(
+      memoizer.set<
+        typeof doExpensiveAnalysisOfFiles,
+        // DO "unpack" id components; go from `T | T[]` to `T` (this is the default).
+        'expect unpacked ids',
+        // DO "unpack" the return value; go from `T | T[]` to `T`.
+        'expect unpacked value'
+      >(
         doExpensiveAnalysisOfFiles,
         [filePath, cacheIdComponents],
         complexResult
@@ -305,7 +335,7 @@ function doExpensiveAnalysisOfFiles(
   return complexResults;
 }
 
-doExpensiveAnalysisOfFiles([
+const result = doExpensiveAnalysisOfFiles([
   '/repos/project/some-file-1.js',
   '/repos/project/some-file-2.js',
   '/repos/project/some-file-3.js'
@@ -314,12 +344,12 @@ doExpensiveAnalysisOfFiles([
 // Even though the parameters are different, we can still take advantage of the
 // memoized result of the previous invocation! No extra work is done by the
 // following:
-doExpensiveAnalysisOfFiles(['/repos/project/some-file-2.js']);
+doExpensiveAnalysisOfFiles(['/repos/project/some-file-2.js'])[0] === result[1]; // true
 ```
 
 <br />
 
-More complex memoization, where we accept and memoize an array of paths in one
+More complex memoization, where we accept and memoize an array of things in one
 shot:
 
 ```typescript
@@ -328,27 +358,33 @@ import { memoizer } from '@-xun/memoize';
 function doExpensiveAnalysisOfFiles(
   filePaths: string[],
   {
-    useCached = true,
+    useCached,
     ...cacheIdComponents
-  }: { activateFunctionality?: boolean; useCached: boolean } = {}
-) {
+  }: { activateFunctionality?: boolean; useCached: boolean }
+): AnalysisResult[] {
   const { activateFunctionality } = cacheIdComponents;
   let complexResults;
 
-  if (options.useCached) {
+  if (useCached) {
     complexResults = memoizer.get<
       typeof doExpensiveAnalysisOfFiles,
-      // Do not "unwrap" the `filePaths` parameter (if it is an array).
-      false,
-      // Do not "unwrap" the return value (if it is an array).
-      false
+      // DO NOT "unpack" id components; leave them as they are.
+      'expect ids as-is',
+      // DO NOT "unpack" the return value; leave it as-is (this is the default).
+      'expect value as-is'
     >(doExpensiveAnalysisOfFiles, [filePaths, cacheIdComponents]);
   }
 
-  if (!complexResults) {
-    complexResults = expensiveAnalysis(filePaths, activateFunctionality);
+  if (complexResults === undefined) {
+    complexResults = expensiveAnalyses(filePaths, activateFunctionality);
 
-    memoizer.set<typeof doExpensiveAnalysisOfFiles, false, false>(
+    memoizer.set<
+      typeof doExpensiveAnalysisOfFiles,
+      // DO NOT "unpack" id components; leave them as they are.
+      'expect ids as-is',
+      // DO NOT "unpack" the return value; leave it as-is (this is the default).
+      'expect value as-is'
+    >(
       doExpensiveAnalysisOfFiles,
       [filePaths, cacheIdComponents],
       complexResults
@@ -358,7 +394,7 @@ function doExpensiveAnalysisOfFiles(
   return complexResults;
 }
 
-doExpensiveAnalysisOfFiles(
+const result = doExpensiveAnalysisOfFiles(
   [
     '/repos/project/some-file-1.js',
     '/repos/project/some-file-2.js',
@@ -378,11 +414,12 @@ doExpensiveAnalysisOfFiles(
   ],
   {
     // This being false means a different cache key is generated and the
-    // previous results are not reused, even though filePaths is the same!
+    // previous results are not reused, even though filePaths (the other id
+    // component) is the same!
     activateFunctionality: false,
     useCached: true
   }
-);
+) !== result; // true
 ```
 
 <br />
@@ -399,19 +436,21 @@ async function doExpensiveAnalysisOfFile({
   filePath: string;
   activateFunctionality?: boolean;
   useCached: boolean;
-}) {
+}): Promise<AnalysisResult> {
   const { filePath, activateFunctionality } = cacheIdComponents;
-  let complexResult;
+  let complexResult: AnalysisResult | undefined;
 
-  if (options.useCached) {
-    // doExpensiveAnalysisOfFile's return type (not the actual value) is always
-    // Awaited<...> if it returns a promise.
-    complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
+  if (useCached) {
+    // memoizer.get returns a promise iff its first parameter is detected to be
+    // an async function or iff memoizer.set is called with `wasPromised: true`.
+    complexResult = await memoizer.get(doExpensiveAnalysisOfFile, [
       cacheIdComponents
     ]);
   }
 
-  if (!complexResult) {
+  if (complexResult === undefined) {
+    // Do not put promises into the cache. Intellisense will attempt to stop you
+    // from doing so. memoizer.get will return the value wrapped in a promise.
     complexResult = await expensiveAnalysis(filePath, activateFunctionality);
     memoizer.set(doExpensiveAnalysisOfFile, [cacheIdComponents], complexResult);
   }
@@ -419,21 +458,29 @@ async function doExpensiveAnalysisOfFile({
   return complexResult;
 }
 
-await doExpensiveAnalysisOfFile({
+const result = await doExpensiveAnalysisOfFile({
   filePath: '/repos/project/some-file.js',
+  // Will look in the cache for a result first (wrt the given filePath).
   useCached: true
 });
 
-await doExpensiveAnalysisOfFile({
+(await doExpensiveAnalysisOfFile({
   filePath: '/repos/project/some-file.js',
+  // Will look in the cache for a result first (wrt the given filePath).
+  useCached: true
+})) === result; // true
+
+(await doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  // Will bypass the cache and force recomputation, then cache the result.
   useCached: false
-});
+})) !== result; // true
 ```
 
 <br />
 
-Customizing which parameters are considered as components of the cache key when
-memoizing a function:
+Piecemeal memoization, where we customize which parameters are considered as
+components of the cache key and ignore the others:
 
 ```typescript
 import { memoizer } from '@-xun/memoize';
@@ -441,7 +488,7 @@ import { memoizer } from '@-xun/memoize';
 function doExpensiveAnalysisOfFile({
   useCached,
   activateFunctionality = true,
-  // We only want to use a subset options when calculating the cache "id".
+  // We only want to use a subset of options as the cache id components.
   ...cacheIdComponents
 }: {
   filePath: string;
@@ -449,7 +496,12 @@ function doExpensiveAnalysisOfFile({
   activateOtherFunctionality?: boolean;
   somethingElse: number;
   useCached: boolean;
-}) {
+}): AnalysisResult {
+  // We'll use this type to tell memoizer what id components to look out for.
+  type MemoizedDoExpensiveAnalysisOfFile = (
+    ...args: [typeof cacheIdComponents]
+  ) => ReturnType<typeof doExpensiveAnalysisOfFile>;
+
   // These three properties will be used as components for our cache "id". If
   // one of them changes, the cache will miss. The other properties are ignored.
   const { filePath, activateOtherFunctionality, somethingElse } =
@@ -457,48 +509,53 @@ function doExpensiveAnalysisOfFile({
 
   let complexResult;
 
-  if (options.useCached) {
-    complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
-      cacheIdComponents
-    ]);
+  if (useCached) {
+    complexResult = memoizer.get<MemoizedDoExpensiveAnalysisOfFile>(
+      doExpensiveAnalysisOfFile as MemoizedDoExpensiveAnalysisOfFile,
+      [cacheIdComponents]
+    );
   }
 
-  if (!complexResult) {
+  if (complexResult === undefined) {
     complexResult = expensiveAnalysis(
       filePath,
       activateFunctionality,
       activateOtherFunctionality
     );
 
-    memoizer.set(doExpensiveAnalysisOfFile, [cacheIdComponents], complexResult);
+    memoizer.set<MemoizedDoExpensiveAnalysisOfFile>(
+      doExpensiveAnalysisOfFile as MemoizedDoExpensiveAnalysisOfFile,
+      [cacheIdComponents],
+      complexResult
+    );
   }
 
   doSomethingElse(somethingElse);
   return complexResult;
 }
 
-doExpensiveAnalysisOfFile({
+const result = doExpensiveAnalysisOfFile({
   filePath: '/repos/project/some-file.js',
   useCached: true,
   activateFunctionality: true,
   somethingElse: 5
 });
 
-// Cache miss
-doExpensiveAnalysisOfFile({
-  filePath: '/repos/project/some-file.js',
-  useCached: true,
-  activateFunctionality: true,
-  somethingElse: 6
-});
-
-// Cache hit
+// Cache hit (despite activateFunctionality)
 doExpensiveAnalysisOfFile({
   filePath: '/repos/project/some-file.js',
   useCached: true,
   activateFunctionality: false,
   somethingElse: 5
-});
+}) === result; // true
+
+// Cache miss (despite activateFunctionality)
+doExpensiveAnalysisOfFile({
+  filePath: '/repos/project/some-file.js',
+  useCached: true,
+  activateFunctionality: true,
+  somethingElse: 6
+}) !== result; // true
 ```
 
 <br />
@@ -517,17 +574,17 @@ async function doExpensiveAnalysisOfFile({
   filePath: string;
   activateFunctionality?: boolean;
   useCached: boolean;
-}) {
+}): Promise<AnalysisResult> {
   const { filePath, activateFunctionality } = cacheIdComponents;
-  let complexResult;
+  let complexResult: AnalysisResult | undefined;
 
-  if (options.useCached) {
-    complexResult = memoizer.get(doExpensiveAnalysisOfFile, [
+  if (useCached) {
+    complexResult = await memoizer.get(doExpensiveAnalysisOfFile, [
       cacheIdComponents
     ]);
   }
 
-  if (!complexResult) {
+  if (complexResult === undefined) {
     complexResult = await expensiveAnalysis(filePath, activateFunctionality);
     memoizer.set(
       doExpensiveAnalysisOfFile,
@@ -540,32 +597,39 @@ async function doExpensiveAnalysisOfFile({
   return complexResult;
 }
 
-await doExpensiveAnalysisOfFile({
+const result = await doExpensiveAnalysisOfFile({
   filePath: '/repos/project/some-file.js',
   useCached: true
 });
 
 // Hits the cache
-await doExpensiveAnalysisOfFile({
+(await doExpensiveAnalysisOfFile({
   filePath: '/repos/project/some-file.js',
   useCached: true
-});
+})) === result;
 
 // Clears the cache but only for the specified function
 memoizer.clear([doExpensiveAnalysisOfFile]);
 
 // Misses the cache
-await doExpensiveAnalysisOfFile({
+(await doExpensiveAnalysisOfFile({
   filePath: '/repos/project/some-file.js',
   useCached: true
-});
+})) !== result;
+
+// If we waited 10 seconds and tried calling doExpensiveAnalysisOfFile again,
+// we would miss the cache again, expirations (below) would be set to 1, and
+// pendingExpirations (also below) would be set to 0.
+
+// If we waited only 5 seconds before calling doExpensiveAnalysisOfFile again,
+// we would hit the cache instead.
 
 console.log(memoizer);
 
 // {
 //   set: [Function: setInCache],
-//   sets: 3,
-//   setsOverwrites: 1,
+//   sets: 2,
+//   setsOverwrites: 0,
 //   setsCreated: 2,
 //   get: [Function: getFromCache],
 //   gets: 3,
@@ -584,8 +648,8 @@ console.log(memoizer);
 ### Other Considerations
 
 - The internal cache is implemented as a global singleton that will persist
-  across the entire runtime, even when imported from different packages. No need
-  to worry about any of the usual package hazards.
+  across the entire runtime (but not cross-realm), even when imported from
+  different packages. No need to worry about any of the usual package hazards.
 
 - The `useCached` property, if used as part of an "options" object, is omitted
   from the type of the secondary optional parameter. The name of this property
@@ -593,22 +657,27 @@ console.log(memoizer);
   the `SecondaryKeysToOmit` generic parameter on `memoizer.get` and
   `memoizer.set`.
 
-- All parameters of memoized functions must be [serializable][1] via
-  `JSON.stringify` or explicitly `undefined`. If they are defined but not
-  serializable, create a wrapper function that transforms any unserializable
-  parameters into some serializable representation before passing them to the
-  memoizer functions.
+- The order of id components will change the derived cache key, resulting in a
+  recomputation. If this is not desired, ensure id components are passed to
+  `memoizer`'s functions in consistently.
+
+- All id components passed to `memoize` and `memoizer`'s functions must be
+  [serializable][1] via `JSON.stringify` or explicitly `undefined`. If any id
+  components are defined but not serializable, create a wrapper function that
+  transforms any unserializable parameters into some serializable representation
+  before passing them to `memoize`/`memoizer`.
 
 > [!CAUTION]
 >
 > `JSON.stringify` will not consistently throw when it encounters unserializable
-> or semi-serializable parameters!
+> or semi-serializable id components!
 >
 > If used carelessly, this can lead to arbitrary cache key collisions where the
 > memoizer functions return the same result for obviously different sets of
-> parameters when it clearly shouldn't.
+> function parameters when it clearly shouldn't.
 >
-> To prevent this, ensure your function's memoized parameters are serializable.
+> To prevent this, ensure your function's memoized parameters (specifically the
+> parameters used as id components) are serializable.
 
 <!-- symbiote-template-region-start 5 -->
 
