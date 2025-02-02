@@ -22,6 +22,12 @@ Re-exports [DefaultKeysToOmitFromCacheParameters](helpers/type-aliases/DefaultKe
 
 ***
 
-### ScopeToCacheParameters
+### ScopeToCacheIds
 
-Re-exports [ScopeToCacheParameters](helpers/type-aliases/ScopeToCacheParameters.md)
+Re-exports [ScopeToCacheIds](helpers/type-aliases/ScopeToCacheIds.md)
+
+***
+
+### ScopeToCacheValue
+
+Re-exports [ScopeToCacheValue](helpers/type-aliases/ScopeToCacheValue.md)

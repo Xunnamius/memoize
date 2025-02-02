@@ -1,6 +1,6 @@
 {
   "name": "@-xun/memoize",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "An extensible memoization cache and global singleton used to speed up expensive function calls",
   "keywords": [],
   "homepage": "https://github.com/Xunnamius/memoize#readme",

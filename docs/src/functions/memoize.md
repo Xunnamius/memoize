@@ -10,7 +10,7 @@
 
 > **memoize**\<`T`\>(`memoizationTarget`, `options`): [`WithUseCachedOption`](../helpers/type-aliases/WithUseCachedOption.md)\<`T`\>
 
-Defined in: [src/index.ts:444](https://github.com/Xunnamius/memoize/blob/283d7337c9ac22bf4837dd729f73aabb00c33795/src/index.ts#L444)
+Defined in: [src/index.ts:430](https://github.com/Xunnamius/memoize/blob/b613141c2f7a96de00eb98581585a2d2f68dc2ab/src/index.ts#L430)
 
 Optimize the execution of a synchronous or asynchronous function by caching
 its return value conditioned on its inputs, and serving that cached value
@@ -58,7 +58,7 @@ arguments are passed through as-is to the underlying function when invoked.
 
 > **memoize**\<`T`\>(`memoizationTarget`, `options`?): `T`
 
-Defined in: [src/index.ts:448](https://github.com/Xunnamius/memoize/blob/283d7337c9ac22bf4837dd729f73aabb00c33795/src/index.ts#L448)
+Defined in: [src/index.ts:434](https://github.com/Xunnamius/memoize/blob/b613141c2f7a96de00eb98581585a2d2f68dc2ab/src/index.ts#L434)
 
 Optimize the execution of a synchronous or asynchronous function by caching
 its return value conditioned on its inputs, and serving that cached value
@@ -106,7 +106,7 @@ arguments are passed through as-is to the underlying function when invoked.
 
 > **memoize**\<`T`\>(`memoizationTarget`, `options`?): `Promisable`\<`T` \| [`WithUseCachedOption`](../helpers/type-aliases/WithUseCachedOption.md)\<`T`\>\>
 
-Defined in: [src/index.ts:452](https://github.com/Xunnamius/memoize/blob/283d7337c9ac22bf4837dd729f73aabb00c33795/src/index.ts#L452)
+Defined in: [src/index.ts:438](https://github.com/Xunnamius/memoize/blob/b613141c2f7a96de00eb98581585a2d2f68dc2ab/src/index.ts#L438)
 
 Optimize the execution of a synchronous or asynchronous function by caching
 its return value conditioned on its inputs, and serving that cached value

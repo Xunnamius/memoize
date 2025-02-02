@@ -8,7 +8,7 @@
 
 > `const` **memoizer**: `object`
 
-Defined in: [src/index.ts:38](https://github.com/Xunnamius/memoize/blob/283d7337c9ac22bf4837dd729f73aabb00c33795/src/index.ts#L38)
+Defined in: [src/index.ts:40](https://github.com/Xunnamius/memoize/blob/b613141c2f7a96de00eb98581585a2d2f68dc2ab/src/index.ts#L40)
 
 The user-facing interface for the memoization cache and related metadata.
 
@@ -58,7 +58,7 @@ The number of times a cached value reached its `maxAgeMs` and was evicted.
 
 ### get()
 
-> **get**: \<`MemoizationTarget`, `ShouldUnwrapIds`, `ShouldUnwrapValue`, `SecondaryKeysToOmit`\>(`scope`, `id`) => `Promisable`\<[`ScopeToCacheParameters`](../helpers/type-aliases/ScopeToCacheParameters.md)\<`MemoizationTarget`, `"value"`, `ShouldUnwrapIds`, `ShouldUnwrapValue`, `SecondaryKeysToOmit`\> \| `undefined`\> = `getFromCache`
+> **get**: \<`MemoizationTarget`, `IdConfig`, `ValueConfig`, `SecondaryKeysToOmit`\>(`scope`, `id`) => `ReturnType`\<`MemoizationTarget`\> *extends* `Promise`\<`any`\> ? `Promise`\<[`ScopeToCacheValue`](../helpers/type-aliases/ScopeToCacheValue.md)\<`MemoizationTarget`, `ValueConfig`\> \| `undefined`\> : [`ScopeToCacheValue`](../helpers/type-aliases/ScopeToCacheValue.md)\<`MemoizationTarget`, `ValueConfig`\> \| `undefined` = `getFromCache`
 
 Retrieve a value from the internal cache given one or more `id` components.
 If no matching value is found, `undefined` is returned.
@@ -70,9 +70,9 @@ Returns a resolved promise if the `wasPromised: true` option was set after
 
 • **MemoizationTarget** *extends* [`CacheScope`](../helpers/type-aliases/CacheScope.md)
 
-• **ShouldUnwrapIds** *extends* `boolean` = `true`
+• **IdConfig** *extends* `"expect ids as-is"` \| `"expect unpacked ids"` = `"expect unpacked ids"`
 
-• **ShouldUnwrapValue** *extends* `boolean` = `false`
+• **ValueConfig** *extends* `"expect value as-is"` \| `"expect unpacked value"` = `"expect value as-is"`
 
 • **SecondaryKeysToOmit** *extends* `string` = `"useCached"`
 
@@ -84,11 +84,11 @@ Returns a resolved promise if the `wasPromised: true` option was set after
 
 ##### id
 
-[`ScopeToCacheParameters`](../helpers/type-aliases/ScopeToCacheParameters.md)\<`MemoizationTarget`, `"id"`, `ShouldUnwrapIds`, `ShouldUnwrapValue`, `SecondaryKeysToOmit`\>
+[`ScopeToCacheIds`](../helpers/type-aliases/ScopeToCacheIds.md)\<`MemoizationTarget`, `IdConfig`, `SecondaryKeysToOmit`\>
 
 #### Returns
 
-`Promisable`\<[`ScopeToCacheParameters`](../helpers/type-aliases/ScopeToCacheParameters.md)\<`MemoizationTarget`, `"value"`, `ShouldUnwrapIds`, `ShouldUnwrapValue`, `SecondaryKeysToOmit`\> \| `undefined`\>
+`ReturnType`\<`MemoizationTarget`\> *extends* `Promise`\<`any`\> ? `Promise`\<[`ScopeToCacheValue`](../helpers/type-aliases/ScopeToCacheValue.md)\<`MemoizationTarget`, `ValueConfig`\> \| `undefined`\> : [`ScopeToCacheValue`](../helpers/type-aliases/ScopeToCacheValue.md)\<`MemoizationTarget`, `ValueConfig`\> \| `undefined`
 
 ### gets
 
@@ -119,33 +119,20 @@ The number of cached values currently in the internal cache with a
 
 ### set()
 
-> **set**: \<`MemoizationTarget`, `ShouldUnwrapIds`, `ShouldUnwrapValue`, `SecondaryKeysToOmit`\>(`scope`, `id`, `value`, `__namedParameters`) => `void` = `setInCache`
+> **set**: \<`MemoizationTarget`, `IdConfig`, `ValueConfig`, `SecondaryKeysToOmit`\>(`scope`, `id`, `value`, `__namedParameters`) => `void` = `setInCache`
 
 Place a value into the internal cache.
 
-Use the `maxAgeMs` option to evict values from the cache after a certain
-amount of time. Overwriting a cached value will also reset its old
-`maxAgeMs` with the newly provided `maxAgeMs` if it has not yet been
-evicted. If the overwrite is performed but no `maxAgeMs` is provided, then
-the value will no longer expire (and vice-versa). Note that providing a
-`maxAgeMs <= 0` is the same as not providing `maxAgeMs`.
-
-Use the `wasPromised: true` option to return a resolved promise when `get`
-is called with a matching cache scope and id. It is unnecessary to set this
-option if the caller is already an asynchronous function, since anything it
-returns will already be wrapped in a promise. This is useful for
-synchronous functions that might return a promise or might not depending on
-their input, such as [memoize](../functions/memoize.md).
-
-Attempting to "set" `undefined` as a value is a no-op.
+Attempting to "set" `undefined` as a value is a no-op (i.e. the same as
+having never called this function at all).
 
 #### Type Parameters
 
 • **MemoizationTarget** *extends* [`CacheScope`](../helpers/type-aliases/CacheScope.md)
 
-• **ShouldUnwrapIds** *extends* `boolean` = `true`
+• **IdConfig** *extends* `"expect ids as-is"` \| `"expect unpacked ids"` = `"expect unpacked ids"`
 
-• **ShouldUnwrapValue** *extends* `boolean` = `false`
+• **ValueConfig** *extends* `"expect value as-is"` \| `"expect unpacked value"` = `"expect value as-is"`
 
 • **SecondaryKeysToOmit** *extends* `string` = `"useCached"`
 
@@ -157,11 +144,11 @@ Attempting to "set" `undefined` as a value is a no-op.
 
 ##### id
 
-[`ScopeToCacheParameters`](../helpers/type-aliases/ScopeToCacheParameters.md)\<`MemoizationTarget`, `"id"`, `ShouldUnwrapIds`, `ShouldUnwrapValue`, `SecondaryKeysToOmit`\>
+[`ScopeToCacheIds`](../helpers/type-aliases/ScopeToCacheIds.md)\<`MemoizationTarget`, `IdConfig`, `SecondaryKeysToOmit`\>
 
 ##### value
 
-`undefined` | [`ScopeToCacheParameters`](../helpers/type-aliases/ScopeToCacheParameters.md)\<`MemoizationTarget`, `"value"`, `ShouldUnwrapIds`, `ShouldUnwrapValue`, `SecondaryKeysToOmit`\>
+`undefined` | [`ScopeToCacheValue`](../helpers/type-aliases/ScopeToCacheValue.md)\<`MemoizationTarget`, `ValueConfig`\>
 
 ##### \_\_namedParameters
 
@@ -169,9 +156,28 @@ Attempting to "set" `undefined` as a value is a no-op.
 
 `number`
 
+Use `maxAgeMs` to evict values from the cache after a certain amount of
+time.
+
+Overwriting a cached value will also reset its old `maxAgeMs` with the
+newly provided `maxAgeMs` if it has not yet been evicted. If the
+overwrite is performed but no `maxAgeMs` is provided, then the value will
+no longer expire (and vice-versa).
+
+Note that providing a `maxAgeMs <= 0` is the same as not providing
+`maxAgeMs`.
+
 ###### wasPromised
 
 `boolean` = `false`
+
+Use `wasPromised: true` to return a resolved promise when `get` is called
+with a matching cache scope and id.
+
+It is unnecessary to set this option if the caller is already an
+asynchronous function, since anything it returns will already be wrapped
+in a promise. This is useful for synchronous functions that might return
+a promise or might not depending on their input, such as [memoize](../functions/memoize.md).
 
 #### Returns
 

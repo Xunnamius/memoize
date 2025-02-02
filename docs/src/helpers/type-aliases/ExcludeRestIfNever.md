@@ -6,9 +6,9 @@
 
 # Type Alias: ExcludeRestIfNever\<Rest, T\>
 
-> **ExcludeRestIfNever**\<`Rest`, `T`\>: `Rest` *extends* `never`[] ? \[[`UnwrapIfArray`](UnwrapIfArray.md)\<`T`\>\] : \[`...Rest`, [`UnwrapIfArray`](UnwrapIfArray.md)\<`T`\>\]
+> **ExcludeRestIfNever**\<`Rest`, `T`\>: `Rest` *extends* `never`[] ? \[[`UnpackIfArray`](UnpackIfArray.md)\<`T`\>\] : \[`...Rest`, [`UnpackIfArray`](UnpackIfArray.md)\<`T`\>\]
 
-Defined in: [src/helpers.ts:75](https://github.com/Xunnamius/memoize/blob/283d7337c9ac22bf4837dd729f73aabb00c33795/src/helpers.ts#L75)
+Defined in: [src/helpers.ts:75](https://github.com/Xunnamius/memoize/blob/b613141c2f7a96de00eb98581585a2d2f68dc2ab/src/helpers.ts#L75)
 
 If `Rest`, representing one or more elements at the end of an array, is
 `never` (i.e. the array has no other elements), return a single-element array
