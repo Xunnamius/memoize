@@ -235,6 +235,20 @@ describe('cache.get and cache.set', () => {
     expect(memoizer.get(fn1, parameters1)).toBe(returnType1);
   });
 
+  it('properly caches and returns defined-but-falsy results', async () => {
+    expect.hasAssertions();
+
+    const fn: (a: number) => number | boolean | null = () => 0;
+
+    memoizer.set(fn, [1], 0);
+    memoizer.set(fn, [2], false);
+    memoizer.set(fn, [3], null);
+
+    expect(memoizer.get(fn, [1])).toBe(0);
+    expect(memoizer.get(fn, [2])).toBeFalse();
+    expect(memoizer.get(fn, [3])).toBeNull();
+  });
+
   it('throws if id component is not serializable', async () => {
     expect.hasAssertions();
 
@@ -556,5 +570,31 @@ describe('memoize', () => {
     // * result final should still be a promise if it would have been anyway
     await expect(memoizedAsync(2, 'four', { d: false })).resolves.toBeArray();
     await expect(memoizedPromise(2, 'four', { d: false })).resolves.toBeArray();
+  });
+
+  it('properly caches and returns defined-but-falsy results', async () => {
+    expect.hasAssertions();
+
+    let count = 0;
+    const fn: (a: number) => number | null | boolean = () =>
+      [0, null, false, count][count++];
+
+    const memoizedFn = memoize(fn);
+
+    expect(memoizedFn(1)).toBe(0);
+    expect(memoizedFn(1)).toBe(0);
+    expect(memoizedFn(1)).toBe(0);
+
+    expect(memoizedFn(2)).toBeNull();
+    expect(memoizedFn(2)).toBeNull();
+    expect(memoizedFn(2)).toBeNull();
+
+    expect(memoizedFn(3)).toBeFalse();
+    expect(memoizedFn(3)).toBeFalse();
+    expect(memoizedFn(3)).toBeFalse();
+
+    expect(memoizedFn(4)).toBe(3);
+    expect(memoizedFn(4)).toBe(3);
+    expect(memoizedFn(4)).toBe(3);
   });
 });

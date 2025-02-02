@@ -509,7 +509,7 @@ function memoize<T extends CacheScope>(
     }
 
     function makeResult(result: Awaited<typeof initialResult>) {
-      if (!result) {
+      if (result === undefined) {
         result = memoizationTarget(...incomingArgs) as ScopeToCacheParameters<
           T,
           'value'
