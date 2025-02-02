@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable unicorn/prefer-ternary */
 import { createHash } from 'node:crypto';
 import { isAsyncFunction, isPromise } from 'node:util/types';
@@ -139,16 +140,26 @@ function getFromCache<
     ShouldUnwrapValue,
     SecondaryKeysToOmit
   >
-): Promisable<
-  | ScopeToCacheParameters<
-      MemoizationTarget,
-      'value',
-      ShouldUnwrapIds,
-      ShouldUnwrapValue,
-      SecondaryKeysToOmit
+): ReturnType<MemoizationTarget> extends Promise<any>
+  ? Promise<
+      | ScopeToCacheParameters<
+          MemoizationTarget,
+          'value',
+          ShouldUnwrapIds,
+          ShouldUnwrapValue,
+          SecondaryKeysToOmit
+        >
+      | undefined
     >
-  | undefined
-> {
+  :
+      | ScopeToCacheParameters<
+          MemoizationTarget,
+          'value',
+          ShouldUnwrapIds,
+          ShouldUnwrapValue,
+          SecondaryKeysToOmit
+        >
+      | undefined {
   const [cache, cacheKey] = deriveCacheKeyFromIdentifiers(scope, id);
 
   if (cache.has(cacheKey)) {
@@ -174,9 +185,9 @@ function getFromCache<
 
   if (wasPromised) {
     cacheDebug('key %O:%O was promised', scope.name, cacheKey);
-    return Promise.resolve(value);
+    return Promise.resolve(value) as any;
   } else {
-    return value;
+    return value as any;
   }
 }
 
