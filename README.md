@@ -77,10 +77,6 @@ npm install @-xun/memoize
 
 ## Usage
 
-> Full API documentation is available [here][x-repo-docs].
-
-<br />
-
 Original function without memoization:
 
 ```typescript
@@ -107,6 +103,11 @@ doExpensiveAnalysisOfFile('/repos/project/some-file.js', {
 
 <!-- remark-ignore-end -->
 
+`memoize` can be used to wrap an existing function with caching/memoization
+features.
+
+---
+
 Simple memoization:
 
 ```typescript
@@ -114,7 +115,8 @@ import { memoize } from '@-xun/memoize';
 
 const memoizedDoExpensiveAnalysisOfFile = memoize(doExpensiveAnalysisOfFile);
 
-memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
+const result = memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
+memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js') === result; // true
 ```
 
 <br />
@@ -129,7 +131,8 @@ const memoizedDoExpensiveAnalysisOfFile = memoize(doExpensiveAnalysisOfFile, {
   maxAgeMs: 10_000
 });
 
-memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
+const result = memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js');
+memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js') === result; // true
 ```
 
 <br />
@@ -148,15 +151,18 @@ const memoizedDoExpensiveAnalysisOfFile = memoize(
   { addUseCachedOption: true }
 );
 
-await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
-  // Will look in the cache for a result first (wrt the given filePath).
-  useCached: true
-});
+const result = await memoizedDoExpensiveAnalysisOfFile(
+  '/repos/project/some-file.js',
+  {
+    // Will look in the cache for a result first (wrt the given filePath).
+    useCached: true
+  }
+);
 
-await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
+(await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
   // Will bypass the cache and force recomputation, then cache the result.
   useCached: false
-});
+})) === result; // true
 ```
 
 <br />
@@ -166,6 +172,11 @@ await memoizedDoExpensiveAnalysisOfFile('/repos/project/some-file.js', {
 ### [`memoizer`](./docs/src/variables/memoizer.md)
 
 <!-- remark-ignore-end -->
+
+`memoizer` can be used to implement caching/memoization within a function
+itself.
+
+---
 
 Basic memoization:
 
