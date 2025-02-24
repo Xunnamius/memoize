@@ -577,7 +577,7 @@ describe('memoize', () => {
 
     let count = 0;
     const fn: (a: number) => number | null | boolean = () =>
-      [0, null, false, count][count++];
+      [0, null, false, count][count++]!;
 
     const memoizedFn = memoize(fn);
 

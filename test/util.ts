@@ -3,6 +3,7 @@
  ** exported by @-xun/jest; these can be imported using the testversal aliases.
  */
 
-// TODO:
-//export * from '@-xun/jest';
-export {};
+// ? @-xun/jest will always come from @-xun/symbiote (i.e. transitively)
+// {@symbiote/notInvalid @-xun/jest}
+
+export * from '@-xun/jest';
