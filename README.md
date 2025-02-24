@@ -658,8 +658,8 @@ console.log(memoizer);
   `memoizer.set`.
 
 - The order of id components will change the derived cache key, resulting in a
-  recomputation. If this is not desired, ensure id components are passed to
-  `memoizer`'s functions in consistently.
+  recomputation. If this is not desired, ensure id components are passed in to
+  `memoizer`'s functions consistently.
 
 - All id components passed to `memoize` and `memoizer`'s functions must be
   [serializable][1] via `JSON.stringify` or explicitly `undefined`. If any id
